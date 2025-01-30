@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hotel Deal Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .chart-container {
+            height: 400px;
+            margin: 20px 0;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        h2, h3 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="card">
+        <h2>Hotel Deal Analyzer</h2>
+        
+        <div class="grid">
+            <!-- Property Information -->
+            <div>
+                <h3>Property Information</h3>
+                <div class="input-group">
+                    <label>Number of Rooms</label>
+                    <input type="number" id="rooms" value="45">
+                </div>
+                <div class="input-group">
+                    <label>List Price (€)</label>
+                    <input type="number" id="listPrice" value="4200000">
+                </div>
+            </div>
+
+            <!-- Market Metrics -->
+            <div>
+                <h3>Market Metrics</h3>
+                <div class="input-group">
+                    <label>Average Room Rate (€)</label>
+                    <input type="number" id="avgRoomRate" value="120">
+                </div>
+                <div class="input-group">
+                    <label>Market Occupancy (%)</label>
+                    <input type="range" id="marketOccupancy" min="0" max="100" value="65">
+                    <span id="occupancyValue">65%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Growth Rates -->
+        <div class="grid">
+            <div>
+                <h3>Growth Rates</h3>
+                <div class="input-group">
+                    <label>Tourism Growth Rate (%)</label>
+                    <input type="number" id="tourismGrowth" value="5" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>Price Growth Rate (%)</label>
+                    <input type="number" id="priceGrowth" value="3" step="0.1">
+                </div>
+            </div>
+            <div>
+                <div class="input-group">
+                    <label>Wine Tourism Impact (%)</label>
+                    <input type="number" id="wineGrowth" value="12" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>Business Growth Rate (%)</label>
+                    <input type="number" id="businessGrowth" value="4" step="0.1">
+                </div>
+            </div>
+        </div>
+
+        <!-- Deal Structure -->
+        <h3>Deal Structure</h3>
+        <div class="grid">
+            <div class="input-group">
+                <label>Initial Payment (€)</label>
+                <input type="number" id="initialPayment" value="500000">
+            </div>
+            <div class="input-group">
+                <label>Monthly Base Payment (€)</label>
+                <input type="number" id="monthlyBase" value="40000">
+            </div>
+        </div>
+
+        <!-- Revenue Chart -->
+        <div class="chart-container">
+            <canvas id="revenueChart"></canvas>
+        </div>
+
+        <!-- Viability Score -->
+        <div id="viabilityScore" class="alert"></div>
+    </div>
+
+    <script>
+        // Initialize state
+        let state = {
+            propertyInfo: {
+                rooms: 45,
+                listPrice: 4200000,
+                currentOccupancy: 40,
+                renovationNeeded: 800000
+            },
+            marketMetrics: {
+                avgRoomRate: 120,
+                marketOccupancy: 65,
+                tourismGrowth: 5,
+                priceGrowth: 3,
+                wineGrowth: 12,
+                businessGrowth: 4
+            },
+            dealStructure: {
+                initialPayment: 500000,
+                monthlyBase: 40000,
+                revenueShare: 25,
+                term: 60,
+                earlyPaymentDiscount: 10
+            }
+        };
+
+        // Calculate projections
+        function calculateProjections() {
+            const years = 5;
+            const projections = [];
+            let currentRevenue = state.propertyInfo.rooms * 
+                               state.marketMetrics.avgRoomRate * 
+                               365 * 
+                               (state.marketMetrics.marketOccupancy / 100);
+
+            projections.push({
+                year: 'Year 0',
+                revenue: Math.round(currentRevenue)
+            });
+
+            for (let i = 0; i < years; i++) {
+                const randomVariation = 0.95 + Math.random() * 0.1;
+                const combinedGrowth = (
+                    (state.marketMetrics.tourismGrowth +
+                    state.marketMetrics.priceGrowth +
+                    (state.marketMetrics.wineGrowth * 0.3) +
+                    (state.marketMetrics.businessGrowth * 0.2)) / 100
+                ) * randomVariation;
+
+                currentRevenue *= (1 + combinedGrowth);
+                projections.push({
+                    year: `Year ${i + 1}`,
+                    revenue: Math.round(currentRevenue)
+                });
+            }
+            return projections;
+        }
+
+        // Calculate viability score
+        function calculateViabilityScore() {
+            const projectedRevenue = calculateProjections()[0].revenue;
+            const debtService = state.dealStructure.monthlyBase * 12;
+            const dscr = projectedRevenue / debtService;
+            const financialScore = Math.min((dscr / 2) * 60, 60);
+            
+            // Simplified subjective score for this version
+            const subjectiveScore = 30;
+            
+            return Math.round(financialScore + subjectiveScore);
+        }
+
+        // Update chart
+        let revenueChart;
+        function updateChart() {
+            const projections = calculateProjections();
+            
+            if (revenueChart) {
+                revenueChart.destroy();
+            }
+
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            revenueChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: projections.map(p => p.year),
+                    datasets: [{
+                        label: 'Projected Revenue (€)',
+                        data: projections.map(p => p.revenue),
+                        borderColor: '#0369a1',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: value => '€' + value.toLocaleString()
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update viability score display
+        function updateViabilityScore() {
+            const score = calculateViabilityScore();
+            const scoreDiv = document.getElementById('viabilityScore');
+            scoreDiv.textContent = `Deal Viability Score: ${score}/100 - ${
+                score >= 70 ? 'Recommended to Proceed' : 'Further Analysis Recommended'
+            }`;
+            scoreDiv.className = `alert ${score >= 70 ? 'alert-success' : 'alert-warning'}`;
+        }
+
+        // Update everything
+        function updateAll() {
+            state.propertyInfo.rooms = Number(document.getElementById('rooms').value);
+            state.propertyInfo.listPrice = Number(document.getElementById('listPrice').value);
+            state.marketMetrics.avgRoomRate = Number(document.getElementById('avgRoomRate').value);
+            state.marketMetrics.marketOccupancy = Number(document.getElementById('marketOccupancy').value);
+            state.dealStructure.initialPayment = Number(document.getElementById('initialPayment').value);
+            state.dealStructure.monthlyBase = Number(document.getElementById('monthlyBase').value);
+            
+            state.marketMetrics.tourismGrowth = Number(document.getElementById('tourismGrowth').value);
+            state.marketMetrics.priceGrowth = Number(document.getElementById('priceGrowth').value);
+            state.marketMetrics.wineGrowth = Number(document.getElementById('wineGrowth').value);
+            state.marketMetrics.businessGrowth = Number(document.getElementById('businessGrowth').value);
+
+            updateChart();
+            updateViabilityScore();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set up event listeners
+            document.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    if (e.target.id === 'marketOccupancy') {
+                        document.getElementById('occupancyValue').textContent = e.target.value + '%';
+                    }
+                    updateAll();
+                });
+            });
+
+            // Initial render
+            updateAll();
+        });
+    </script>
+</body>
+</html>
